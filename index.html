@@ -16,13 +16,7 @@
             margin-bottom: 30px;
         }
 
-        #recalculate {
-        margin-top: 10px;
-        background-color: #f5f5f5;
-        border: 1px solid #333;
-        padding: 8px 16px;
-        cursor: pointer;
-    }
+
         .range-slider {
             width: 100%;
             margin: 10px 0;
@@ -40,6 +34,14 @@
         #error-volume-msg {
             color: red;
             visibility: hidden;
+        }
+        
+        #recalculate {
+            margin-top: 10px;
+            background-color: #f5f5f5;
+            border: 1px solid #333;
+            padding: 8px 16px;
+            cursor: pointer;
         }
 
         #second-panel {
@@ -361,6 +363,7 @@
                     </div>
                     <button id="share">Compartir Resultados</button>
                     <button id="email-report-button">Descargar reporte completo</button>
+                    <button id="recalculate">Recalcular</button>
                 `);
 
                 // Reattach share button click handler
@@ -371,6 +374,17 @@
                     }, function(err) {
                         console.error('Error al copiar', err);
                     });
+                });
+
+                // Reattach recalculate button handler
+                $('#recalculate').click(function() {
+                    $('#second-panel').css('opacity', 0);
+                    setTimeout(function() {
+                        $('#second-panel').css('visibility', 'hidden');
+                        $('#second-panel').css('height', '0px');
+                        $('#first-panel').css('visibility', 'visible').css('height', 'auto').css('opacity', 1);
+                        $('#ticketVolume').val('');
+                    }, 200);
                 });
             }
 
@@ -405,7 +419,7 @@
             $('#agents, #salary_agents').on('input change', recalc);
 
             // Agregar aquí el nuevo event listener
-            $('#recalculate').click(function() {
+            $(document).on('click', '#recalculate', function() {
                 $('#second-panel').css('opacity', 0);
                 setTimeout(function() {
                     $('#second-panel').css('visibility', 'hidden');
