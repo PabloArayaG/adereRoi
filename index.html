@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora ROI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .calculator-block {
+            margin-bottom: 30px;
+        }
+
+        .range-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .input-slider-field {
+            width: 80px;
+            padding: 5px;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        #error-volume-msg {
+            color: red;
+            visibility: hidden;
+        }
+
+        #second-panel {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .results-wrapper {
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        select {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .solution-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="first-panel">
+        <h2>Calcula tu ROI</h2>
+        <div>
+            <label>Volumen mensual de tickets</label>
+            <input type="number" id="ticketVolume" placeholder="Ingresa el volumen de tickets">
+            <div id="error-volume-msg">Por favor ingresa un volumen válido</div>
+            <button id="calculate">Calcular</button>
+        </div>
+    </div>
+
+    <div id="second-panel">
+        <div class="calculator-block">
+            <label>Tipo de Solución</label>
+            <select id="solutionType">
+                <option value="flow" data-rate="60">Automatización de Flujo</option>
+                <option value="genai-basic" data-rate="70">GenAI Básica</option>
+                <option value="genai-plus" data-rate="75">GenAI Plus</option>
+            </select>
+            <div class="solution-info"></div>
+        </div>
+
+        <div class="calculator-block">
+            <label>Chats</label>
+            <input type="range" class="range-slider" value="60" min="0" max="100" id="chats">
+            <input type="number" id="chats-num" class="input-slider-field">
+        </div>
+
+        <div class="calculator-block">
+            <label>Correos</label>
+            <input type="range" class="range-slider" value="30" min="0" max="100" id="emails">
+            <input type="number" id="emails-num" class="input-slider-field">
+        </div>
+
+        <div class="calculator-block">
+            <label>Llamadas</label>
+            <input type="range" class="range-slider" value="10" min="0" max="100" id="calls">
+            <input type="number" id="calls-num" class="input-slider-field">
+        </div>
+
+        <div>
+            <label>Número de agentes</label>
+            <input type="number" id="agents">
+        </div>
+
+        <div>
+            <label>Salario anual por agente</label>
+            <div>
+                <span class="currency-symbol">$</span>
+                <input type="number" id="salary_agents" value="1200">
+            </div>
+        </div>
+
+        <div class="results-wrapper">
+            <h3>Tu ROI anual con Adereso</h3>
+            <div>
+                <div>Tickets Automatizados por Adereso AI: <span id="tickets_solved">0</span></div>
+                <div>Ahorro gracias a Adereso AI: <span class="currency-symbol">$</span><span id="savings_delivered">0</span></div>
+                <div>Tu inversión se paga <span id="roi_multiplier">0</span>x, en <span id="payback_months">0</span> meses.</div>
+            </div>
+            <button id="share">Compartir Resultados</button>
+            <button id="email-report-button">Descargar reporte completo</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const costs = {
+                "4500": {
+                    "flow": { desk: 0.138, studio: 0.035 },
+                    "genai-basic": { desk: 0.138, studio: 0.084 },
+                    "genai-plus": { desk: 0.138, studio: 0.231 },
+                },
+                "13500": {
+                    "flow": { desk: 0.126, studio: 0.032 },
+                    "genai-basic": { desk: 0.126, studio: 0.077 },
+                    "genai-plus": { desk: 0.126, studio: 0.210 },
+                },
+                "40500": {
+                    "flow": { desk: 0.118, studio: 0.030 },
+                    "genai-basic": { desk: 0.118, studio: 0.072 },
+                    "genai-plus": { desk: 0.118, studio: 0.197 },
+                },
+                "121500": {
+                    "flow": { desk: 0.109, studio: 0.027 },
+                    "genai-basic": { desk: 0.109, studio: 0.066 },
+                    "genai-plus": { desk: 0.109, studio: 0.182 },
+                },
+                "364500": {
+                    "flow": { desk: 0.104, studio: 0.026 },
+                    "genai-basic": { desk: 0.104, studio: 0.064 },
+                    "genai-plus": { desk: 0.104, studio: 0.174 },
+                },
+                "1093500": {
+                    "flow": { desk: 0.098, studio: 0.025 },
+                    "genai-basic": { desk: 0.098, studio: 0.060 },
+                    "genai-plus": { desk: 0.098, studio: 0.164 },
+                },
+                "3280500": {
+                    "flow": { desk: 0.095, studio: 0.024 },
+                    "genai-basic": { desk: 0.095, studio: 0.058 },
+                    "genai-plus": { desk: 0.095, studio: 0.158 },
+                }
+            };
+
+            function findCostRange(ticketVolume) {
+                const ranges = Object.keys(costs).map(Number).sort((a, b) => a - b);
+                for (let i = 0; i < ranges.length; i++) {
+                    if (ticketVolume <= ranges[i]) {
+                        return ranges[i].toString();
+                    }
+                }
+                return ranges[ranges.length - 1].toString();
+            }
+
+            function updateSolutionInfo() {
+                const solutionType = $('#solutionType').val();
+                let infoText = '';
+                
+                switch(solutionType) {
+                    case 'flow':
+                        infoText = 'Automatización de flujo determinístico: Ideal para consultas repetitivas de baja complejidad (p.e. información de horarios o boleta).';
+                        break;
+                    case 'genai-basic':
+                        infoText = 'Automatización con GenAI Basic: Pensado para atención conversacional de consultas diversas (p.e. asistente de venta o soporte técnico simple)';
+                        break;
+                    case 'genai-plus':
+                        infoText = 'Automatización con GenAI Plus: Diseñado para automatizar atenciones complejas (p.e. validación de usuario con cédula de identidad o venta consultiva)';
+                        break;
+                }
+
+                $('.solution-info').html(infoText);
+            }
+
+            function getParameterByName(name, url = window.location.href) {
+                name = name.replace(/[\[\]]/g, '\\$&');
+                var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+                    results = regex.exec(url);
+                if (!results) return null;
+                if (!results[2]) return '';
+                return decodeURIComponent(results[2].replace(/\+/g, ' '));
+            }
+
+            function constructUrlWithParameters() {
+                var params = {
+                    'ticketVolume': $('#ticketVolume').val() || '',
+                    'solutionType': $('#solutionType').val() || '',
+                    'agents': $('#agents').val() || '',
+                    'salaryAgents': $('#salary_agents').val() || '',
+                    'chatsNum': $('#chats-num').val() || '',
+                    'emailsNum': $('#emails-num').val() || '',
+                    'callsNum': $('#calls-num').val() || ''
+                };
+
+                var queryParams = $.param(params);
+                var baseUrl = window.location.href.split('?')[0].split('#')[0];
+                return baseUrl + '?' + queryParams;
+            }
+
+            function applyFill(slider) {
+                const max = parseFloat(slider.max);
+                const value = parseFloat(slider.value);
+                const percentage = (value / max) * 100;
+                
+                let colorFill;
+                if (slider.id === 'chats') {
+                    colorFill = `linear-gradient(90deg, #FF5C00 ${percentage}%, #e5e5e5 ${percentage}%)`;
+                } else if (slider.id === 'emails') {
+                    colorFill = `linear-gradient(90deg, #333333 ${percentage}%, #e5e5e5 ${percentage}%)`;
+                } else if (slider.id === 'calls') {
+                    colorFill = `linear-gradient(90deg, #86C7D6 ${percentage}%, #e5e5e5 ${percentage}%)`;
+                }
+                slider.style.background = colorFill;
+            }
+
+            function performCalculation() {
+                var ticketVolumeValue = $('#ticketVolume').val();
+                if (ticketVolumeValue && parseFloat(ticketVolumeValue) >= 1) {
+                    $('#error-volume-msg').css('visibility', 'hidden');
+                    
+                    $('#first-panel').css('opacity', 0);
+                    setTimeout(function() {
+                        $('#first-panel').css('visibility', 'hidden');
+                        $('#first-panel').css('height', '0px');
+                        $('#second-panel').css('visibility', 'visible').css('opacity', 1);
+                        $('#second-panel').css('height', 'auto').css('opacity', 1);
+                    }, 200);
+
+                    initializeDefaultSliderValues(parseFloat(ticketVolumeValue));
+                    updateSolutionInfo();
+                    recalc();
+                } else {
+                    $('#error-volume-msg').css('visibility', 'visible');
+                    return false;
+                }
+            }
+
+            function initializeDefaultSliderValues(ticketVolume) {
+                updateSlidersMax(ticketVolume);
+                
+                var chatValue = Math.round(ticketVolume * 0.3);
+                var emailsValue = Math.round(ticketVolume * 0.6);
+                var callsValue = Math.round(ticketVolume * 0.1);
+
+                $('#chats').val(chatValue);
+                $('#emails').val(emailsValue);
+                $('#calls').val(callsValue);
+                
+                $('#chats-num').val(chatValue);
+                $('#emails-num').val(emailsValue);
+                $('#calls-num').val(callsValue);
+
+                applyFill($('#chats')[0]);
+                applyFill($('#emails')[0]);
+                applyFill($('#calls')[0]);
+            }
+
+            function updateSlidersMax(ticketVolume) {
+                $('.range-slider').attr('max', ticketVolume);
+            }
+
+            function recalc() {
+                var ticketVolume = parseFloat($('#ticketVolume').val()) || 0;
+                updateSlidersMax(ticketVolume);
+
+                var chatValue = parseFloat($('#chats-num').val()) || 0;
+                var emailsValue = parseFloat($('#emails-num').val()) || 0;
+                var callsValue = parseFloat($('#calls-num').val()) || 0;
+
+                const solutionType = $('#solutionType').val();
+                const costRange = findCostRange(ticketVolume);
+                const selectedCosts = costs[costRange][solutionType];
+                const totalCost = selectedCosts.desk + selectedCosts.studio;
+
+                $('#chats').val(chatValue);
+                $('#emails').val(emailsValue);
+                $('#calls').val(callsValue);
+
+                applyFill($('#chats')[0]);
+                applyFill($('#emails')[0]);
+                applyFill($('#calls')[0]);
+
+                var userSpecifiedAgents = parseInt($('#agents').val());
+                var calculatedAgents = (ticketVolume > 0) ? Math.max(1, Math.ceil(ticketVolume / 600)) : 0;
+                var no_agents = (userSpecifiedAgents > 0) ? userSpecifiedAgents : calculatedAgents;
+                no_agents = Math.max(1, no_agents);
+
+                var salary_agents = parseFloat($('#salary_agents').val()) || 12000;
+
+                var chat = chatValue * 12;
+                var emails = emailsValue * 12;
+                var calls = callsValue * 12;
+
+                const automationRate = parseFloat($('#solutionType option:selected').attr('data-rate')) / 100;
+
+                // Calculamos el total de tickets anuales SOLO de los canales seleccionados
+                const totalAnnualTickets = chat + emails + calls;
+                
+                // Calculamos el costo por ticket basado en los canales seleccionados
+                const costPerTicket = (salary_agents * no_agents * 12) / totalAnnualTickets;
+                
+                // Cálculo de inversión anual basado en los tickets seleccionados
+                const monthlyCost = ((totalCost) * (chatValue + emailsValue + callsValue)) + 250;
+                const annualInvestment = monthlyCost * 12;
+                
+                // Calculamos tickets automatizados de los canales seleccionados
+                var tickets_solved = Math.round(totalAnnualTickets * automationRate);
+                
+                // Calcular ahorro bruto
+                var ahorro_bruto = Math.round(tickets_solved * costPerTicket);
+                
+                // Calcular ahorro neto
+                var ahorro_neto = ahorro_bruto - annualInvestment;
+                
+                // Calcular costo anual de ejecutivos proporcional a los canales seleccionados
+                var costo_anual_ejecutivos = salary_agents * no_agents * 12;
+                
+                // Cálculo del ROI y payback con los valores actualizados
+                const roiTimes = (ahorro_bruto / annualInvestment).toFixed(2);
+                const paybackMonths = ((annualInvestment / costo_anual_ejecutivos) * 12).toFixed(2);
+
+                $('#agents').attr('placeholder', calculatedAgents);
+                $('.results-wrapper').html(`
+                    <h3>Tu ROI anual con Adereso</h3>
+                    <div>
+                        <div>Tickets Automatizados por Adereso AI: ${tickets_solved.toLocaleString()}</div>
+                        <div>Ahorro gracias a Adereso AI: <span class="currency-symbol">$</span>${ahorro_neto.toLocaleString()}</div>
+                        <div>Tu inversión se paga al menos ${roiTimes}x, en ${paybackMonths} meses.</div>
+                    </div>
+                    <button id="share">Compartir Resultados</button>
+                    <button id="email-report-button">Descargar reporte completo</button>
+                `);
+
+                // Reattach share button click handler
+                $('#share').click(function() {
+                    var url = constructUrlWithParameters();
+                    navigator.clipboard.writeText(url).then(function() {
+                        alert("¡URL copiada al portapapeles!");
+                    }, function(err) {
+                        console.error('Error al copiar', err);
+                    });
+                });
+            }
+
+            // Event Listeners
+            $('#calculate').click(performCalculation);
+            $('#solutionType').on('change', function() {
+                updateSolutionInfo();
+                recalc();
+            });
+
+            $('#ticketVolume').keydown(function(event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    performCalculation();
+                }
+            });
+
+            $('.range-slider').on('input', function() {
+                let inputFieldId = $(this).attr('id') + '-num';
+                $('#' + inputFieldId).val($(this).val());
+                applyFill(this);
+                recalc();
+            });
+
+            $('.input-slider-field').on('input', function() {
+                let sliderId = $(this).attr('id').replace('-num', '');
+                $('#' + sliderId).val($(this).val());
+                applyFill($('#' + sliderId).get(0));
+                recalc();
+            });
+
+            $('#agents, #salary_agents').on('input change', recalc);
+
+            // Inicialización
+            if (getParameterByName('ticketVolume') !== null) {
+                var ticketVolume = parseFloat(getParameterByName('ticketVolume')) || 0;
+                $('#ticketVolume').val(ticketVolume);
+                performCalculation();
+            }
+        });
+    </script>
+</body>
+</html>
